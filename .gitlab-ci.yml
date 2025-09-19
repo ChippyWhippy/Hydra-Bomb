@@ -1,0 +1,74 @@
+# .gitlab-ci.yml — CI Hydra Controlled
+
+include:
+  - local: ci/generated.yml
+    rules:
+      - exists: [ci/generated.yml]
+      - when: never
+
+stages: [regrow, heads]
+
+variables:
+  HYDRA_ENABLED: "true"     # set to "false" to pause without editing YAML
+  HYDRA_MAX_JOBS: "25"      # cap growth (set "0" for unlimited)
+  HYDRA_PREFIX: "hydra"     # prefix for generated job names
+  HYDRA_SLEEP_SECONDS: "0"  # throttle per iteration
+
+ci_hydra_regrow:
+  stage: regrow
+  image: alpine:latest
+  rules:
+    - if: '$HYDRA_ENABLED == "true" && $CI_PIPELINE_SOURCE == "push"'
+      when: always
+    - when: never
+  script:
+    - apk add --no-cache git coreutils grep
+    - git config --global user.email "hydra-bot@example.com"
+    - git config --global user.name "CI Hydra Bot"
+
+    # auth remote using CI_JOB_TOKEN
+    - |
+      git remote remove ci >/dev/null 2>&1 || true
+      git remote add ci "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      git fetch ci "${CI_COMMIT_REF_NAME}"
+
+    # ensure include file exists
+    - mkdir -p ci
+    - test -f ci/generated.yml || printf "# generated hydra heads\n" > ci/generated.yml
+
+    # count heads
+    - COUNT=$(grep -c "^${HYDRA_PREFIX}_head_" ci/generated.yml || true)
+    - echo "🐍 Current ${HYDRA_PREFIX} heads: ${COUNT} / ${HYDRA_MAX_JOBS}"
+
+    # cap growth (0 = unlimited)
+    - |
+      if [ "${HYDRA_MAX_JOBS}" != "0" ] && [ "${COUNT}" -ge "${HYDRA_MAX_JOBS}" ]; then
+        echo "🛡️  Max heads reached (${HYDRA_MAX_JOBS}). No regrowth."
+        exit 0
+      fi
+
+    # create new head
+    - HEAD_NAME="${HYDRA_PREFIX}_head_$(date +%s)_${CI_PIPELINE_IID}"
+
+    # append to include file
+    - |
+      cat >> ci/generated.yml <<EOF
+
+${HEAD_NAME}:
+  stage: heads
+  script:
+    - echo "🐍 ${HEAD_NAME} hisses from pipeline \${CI_PIPELINE_ID} at \$(date)"
+    - echo "🧪 Controlled mode- prefix=${HYDRA_PREFIX}, max=${HYDRA_MAX_JOBS}"
+EOF
+
+    # optional throttle
+    - |
+      if [ "${HYDRA_SLEEP_SECONDS}" != "0" ]; then
+        echo "⏳ Sleeping ${HYDRA_SLEEP_SECONDS}s before push..."
+        sleep "${HYDRA_SLEEP_SECONDS}"
+      fi
+
+    # commit & push (re-trigger)
+    - git add ci/generated.yml
+    - git commit -m "CI Hydra (${HYDRA_PREFIX}) sprouts ${HEAD_NAME}"
+    - git push ci "${CI_COMMIT_REF_NAME}:${CI_COMMIT_REF_NAME}"
