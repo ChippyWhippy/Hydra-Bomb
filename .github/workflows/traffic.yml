@@ -2,50 +2,145 @@ name: GitHub Traffic (Clones + Views)
 
 on:
   schedule:
-    - cron: "0 0 * * *"   # runs once per day
-  workflow_dispatch:       # allow manual trigger
+    - cron: "0 0 * * *"    # daily
+  workflow_dispatch:
 
 jobs:
   update-traffic:
     runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.SECRET_TOKEN }}
+      CLONE_GIST_ID: ${{ secrets.CLONE_GIST_ID }}
+      VIEW_GIST_ID:  ${{ secrets.VIEW_GIST_ID }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Authenticate GitHub CLI
-        run: echo "${{ secrets.SECRET_TOKEN }}" | gh auth login --with-token
+      - name: Ensure jq present
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      # --- CLONES ---
+      # --------- CLONES ----------
       - name: Fetch clone stats
         run: |
-          curl --user "${{ github.actor }}:${{ secrets.SECRET_TOKEN }}" \
+          echo "Fetching clone stats for ${{ github.repository }}..."
+          curl -sS -u "${{ github.actor }}:${TOKEN}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/traffic/clones \
-            > clones.json
+            "https://api.github.com/repos/${{ github.repository }}/traffic/clones" \
+            | tee clones.json
 
-      - name: Update clone gist
+      - name: Upsert clone gist (create if missing)
+        id: upsert_clone
+        shell: bash
         run: |
-          content=$(cat clones.json | jq -c .)
-          echo '{"description":"'"${{ github.repository }}"' clone statistics","files":{"clone.json":{"content":'"$content"'}}}' > post.json
-          curl -s -X PATCH \
-            -H "Authorization: token ${{ secrets.SECRET_TOKEN }}" \
-            -d @post.json \
-            https://api.github.com/gists/${{ secrets.CLONE_GIST_ID }}
+          CONTENT=$(jq -c . clones.json)
 
-      # --- VIEWS ---
+          if [ -z "$CLONE_GIST_ID" ]; then
+            echo "No CLONE_GIST_ID secret set. Creating a new gist..."
+            RESP=$(curl -sS -X POST \
+              -H "Authorization: token ${TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/gists \
+              -d "$(jq -n --arg desc "${{ github.repository }} clone statistics" \
+                        --arg content "$CONTENT" \
+                        '{description:$desc, public:false, files:{"clone.json":{content:$content}}}')" )
+            echo "Gist create response: $RESP"
+            NEW_ID=$(echo "$RESP" | jq -r '.id')
+            if [ "$NEW_ID" = "null" ] || [ -z "$NEW_ID" ]; then
+              echo "Failed to create clone gist."; exit 1
+            fi
+            echo "NEW_CLONE_GIST_ID=$NEW_ID" | tee -a $GITHUB_OUTPUT
+            echo "::notice title=Save this in repo secrets::Set CLONE_GIST_ID=$NEW_ID"
+          else
+            echo "Patching existing clone gist: $CLONE_GIST_ID"
+            RESP=$(curl -sS -X PATCH \
+              -H "Authorization: token ${TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/gists/${CLONE_GIST_ID}" \
+              -d "$(jq -n --arg desc "${{ github.repository }} clone statistics" \
+                        --arg content "$CONTENT" \
+                        '{description:$desc, files:{"clone.json":{content:$content}}}')" )
+            echo "Gist patch response: $RESP"
+            # If gist not found, create it now
+            if echo "$RESP" | jq -e '.message == "Not Found"' >/dev/null; then
+              echo "Existing CLONE_GIST_ID invalid. Creating a new gist..."
+              RESP=$(curl -sS -X POST \
+                -H "Authorization: token ${TOKEN}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/gists \
+                -d "$(jq -n --arg desc "${{ github.repository }} clone statistics" \
+                          --arg content "$CONTENT" \
+                          '{description:$desc, public:false, files:{"clone.json":{content:$content}}}')" )
+              echo "Gist create response: $RESP"
+              NEW_ID=$(echo "$RESP" | jq -r '.id')
+              [ -z "$NEW_ID" -o "$NEW_ID" = "null" ] && { echo "Failed to create clone gist."; exit 1; }
+              echo "NEW_CLONE_GIST_ID=$NEW_ID" | tee -a $GITHUB_OUTPUT
+              echo "::notice title=Save this in repo secrets::Set CLONE_GIST_ID=$NEW_ID"
+            fi
+          fi
+
+      # --------- VIEWS -----------
       - name: Fetch view stats
         run: |
-          curl --user "${{ github.actor }}:${{ secrets.SECRET_TOKEN }}" \
+          echo "Fetching view stats for ${{ github.repository }}..."
+          curl -sS -u "${{ github.actor }}:${TOKEN}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/traffic/views \
-            > views.json
+            "https://api.github.com/repos/${{ github.repository }}/traffic/views" \
+            | tee views.json
 
-      - name: Update view gist
+      - name: Upsert view gist (create if missing)
+        id: upsert_view
+        shell: bash
         run: |
-          content=$(cat views.json | jq -c .)
-          echo '{"description":"'"${{ github.repository }}"' view statistics","files":{"views.json":{"content":'"$content"'}}}' > post.json
-          curl -s -X PATCH \
-            -H "Authorization: token ${{ secrets.SECRET_TOKEN }}" \
-            -d @post.json \
-            https://api.github.com/gists/${{ secrets.VIEW_GIST_ID }}
+          CONTENT=$(jq -c . views.json)
+
+          if [ -z "$VIEW_GIST_ID" ]; then
+            echo "No VIEW_GIST_ID secret set. Creating a new gist..."
+            RESP=$(curl -sS -X POST \
+              -H "Authorization: token ${TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/gists \
+              -d "$(jq -n --arg desc "${{ github.repository }} view statistics" \
+                        --arg content "$CONTENT" \
+                        '{description:$desc, public:false, files:{"views.json":{content:$content}}}')" )
+            echo "Gist create response: $RESP"
+            NEW_ID=$(echo "$RESP" | jq -r '.id')
+            [ -z "$NEW_ID" -o "$NEW_ID" = "null" ] && { echo "Failed to create view gist."; exit 1; }
+            echo "NEW_VIEW_GIST_ID=$NEW_ID" | tee -a $GITHUB_OUTPUT
+            echo "::notice title=Save this in repo secrets::Set VIEW_GIST_ID=$NEW_ID"
+          else
+            echo "Patching existing view gist: $VIEW_GIST_ID"
+            RESP=$(curl -sS -X PATCH \
+              -H "Authorization: token ${TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/gists/${VIEW_GIST_ID}" \
+              -d "$(jq -n --arg desc "${{ github.repository }} view statistics" \
+                        --arg content "$CONTENT" \
+                        '{description:$desc, files:{"views.json":{content:$content}}}')" )
+            echo "Gist patch response: $RESP"
+            if echo "$RESP" | jq -e '.message == "Not Found"' >/dev/null; then
+              echo "Existing VIEW_GIST_ID invalid. Creating a new gist..."
+              RESP=$(curl -sS -X POST \
+                -H "Authorization: token ${TOKEN}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/gists \
+                -d "$(jq -n --arg desc "${{ github.repository }} view statistics" \
+                          --arg content "$CONTENT" \
+                          '{description:$desc, public:false, files:{"views.json":{content:$content}}}')" )
+              echo "Gist create response: $RESP"
+              NEW_ID=$(echo "$RESP" | jq -r '.id')
+              [ -z "$NEW_ID" -o "$NEW_ID" = "null" ] && { echo "Failed to create view gist."; exit 1; }
+              echo "NEW_VIEW_GIST_ID=$NEW_ID" | tee -a $GITHUB_OUTPUT
+              echo "::notice title=Save this in repo secrets::Set VIEW_GIST_ID=$NEW_ID"
+            fi
+          fi
+
+      - name: Show next steps
+        run: |
+          echo ""
+          echo "================ NEXT STEPS ================"
+          echo "If you see NEW_*_GIST_ID above, copy them into your repo secrets:"
+          echo "  - CLONE_GIST_ID=<the id shown>"
+          echo "  - VIEW_GIST_ID=<the id shown>"
+          echo "Then re-run the workflow."
+          echo "============================================"
