@@ -2,6 +2,8 @@
 [![Repo Stars](https://img.shields.io/github/stars/ChippyWhippy/ci-pipebomb?style=for-the-badge)](https://github.com/ChippyWhippy/ci-pipebomb/stargazers)
 [![Forks](https://img.shields.io/github/forks/ChippyWhippy/ci-pipebomb?style=for-the-badge)](https://github.com/ChippyWhippy/ci-pipebomb/network/members)
 [![Issues](https://img.shields.io/github/issues/ChippyWhippy/ci-pipebomb?style=for-the-badge)](https://github.com/ChippyWhippy/ci-pipebomb/issues)
+[![GitHub Clones](https://img.shields.io/badge/dynamic/json?color=success&label=Clones&query=count&url=https://gist.githubusercontent.com/<your-username>/<gist-id>/raw/clone.json&logo=github)](https://github.com/MShawon/github-clone-count-badge)
+
 
 ![Repo Stats](https://github-readme-stats.vercel.app/api/pin/?username=ChippyWhippy&repo=ci-pipebomb&theme=dark)
 
