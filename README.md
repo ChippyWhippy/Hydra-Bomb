@@ -3,7 +3,7 @@
 [![Forks](https://img.shields.io/github/forks/ChippyWhippy/ci-pipebomb?style=for-the-badge)](https://github.com/ChippyWhippy/ci-pipebomb/network/members)
 [![Issues](https://img.shields.io/github/issues/ChippyWhippy/ci-pipebomb?style=for-the-badge)](https://github.com/ChippyWhippy/ci-pipebomb/issues)
 
-![Repo Stats](https://github-readme-stats.vercel.app/api/pin/?username=ChippyWhippy&repo=ci-pipebomb&theme=radical)
+![Repo Stats](https://github-readme-stats.vercel.app/api/pin/?username=ChippyWhippy&repo=ci-pipebomb&theme=dark)
 
 Self-modifying GitLab CI pipelines for chaos testing and resource consumption analysis.
 
