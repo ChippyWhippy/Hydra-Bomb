@@ -1,4 +1,5 @@
-# .gitlab-ci.yml — CI PipeBomb Controlled
+# CI PipeBomb Controlled Version
+# Safe, configurable chaos testing with limits
 
 include:
   - local: ci/detonation-sequence.yml
@@ -9,10 +10,10 @@ include:
 stages: [arm, detonate]
 
 variables:
-  PIPEBOMB_ENABLED: "true"     # set to "false" to defuse without editing YAML
-  PIPEBOMB_MAX_EXPLOSIONS: "25" # cap blast radius (set "0" for unlimited)
-  PIPEBOMB_PREFIX: "pipebomb"  # prefix for generated explosion jobs
-  PIPEBOMB_FUSE_SECONDS: "0"   # delay before detonation
+  PIPEBOMB_ENABLED: "true"
+  PIPEBOMB_MAX_EXPLOSIONS: "25"
+  PIPEBOMB_PREFIX: "pipebomb"
+  PIPEBOMB_FUSE_SECONDS: "0"
 
 ci_pipebomb_arm:
   stage: arm
@@ -25,32 +26,20 @@ ci_pipebomb_arm:
     - apk add --no-cache git coreutils grep
     - git config --global user.email "demolition-bot@example.com"
     - git config --global user.name "CI Demolition Bot"
-
-    # auth remote using CI_JOB_TOKEN
     - |
       git remote remove ci >/dev/null 2>&1 || true
       git remote add ci "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
       git fetch ci "${CI_COMMIT_REF_NAME}"
-
-    # ensure detonation sequence file exists
     - mkdir -p ci
-    - test -f ci/detonation-sequence.yml || printf "# pipebomb detonation sequence\n" > ci/detonation-sequence.yml
-
-    # count active explosions
+    - test -f ci/detonation-sequence.yml || printf "# generated pipebomb explosions\n" > ci/detonation-sequence.yml
     - COUNT=$(grep -c "^${PIPEBOMB_PREFIX}_explosion_" ci/detonation-sequence.yml || true)
     - echo "💣 Current ${PIPEBOMB_PREFIX} explosions: ${COUNT} / ${PIPEBOMB_MAX_EXPLOSIONS}"
-
-    # cap blast radius (0 = unlimited)
     - |
       if [ "${PIPEBOMB_MAX_EXPLOSIONS}" != "0" ] && [ "${COUNT}" -ge "${PIPEBOMB_MAX_EXPLOSIONS}" ]; then
         echo "🛡️  Maximum yield reached (${PIPEBOMB_MAX_EXPLOSIONS}). Ceasing fire."
         exit 0
       fi
-
-    # create new explosion
     - EXPLOSION_NAME="${PIPEBOMB_PREFIX}_explosion_$(date +%s)_${CI_PIPELINE_IID}"
-
-    # append to detonation sequence
     - |
       cat >> ci/detonation-sequence.yml <<EOF
 
@@ -60,15 +49,11 @@ ${EXPLOSION_NAME}:
     - echo "💥 ${EXPLOSION_NAME} detonated in pipeline \${CI_PIPELINE_ID} at \$(date)"
     - echo "🧨 Yield control: prefix=${PIPEBOMB_PREFIX}, max=${PIPEBOMB_MAX_EXPLOSIONS}"
 EOF
-
-    # optional fuse delay
     - |
       if [ "${PIPEBOMB_FUSE_SECONDS}" != "0" ]; then
         echo "⏰ Lighting ${PIPEBOMB_FUSE_SECONDS}s fuse..."
         sleep "${PIPEBOMB_FUSE_SECONDS}"
       fi
-
-    # commit & push (trigger chain reaction)
     - git add ci/detonation-sequence.yml
     - git commit -m "CI PipeBomb (${PIPEBOMB_PREFIX}) primes ${EXPLOSION_NAME}"
     - git push ci "${CI_COMMIT_REF_NAME}:${CI_COMMIT_REF_NAME}"
