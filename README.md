@@ -4,6 +4,66 @@ Self-modifying GitLab CI pipelines for chaos testing and resource consumption an
 
 ---
 
+> **DISCLAIMER: READ THIS BEFORE USING**
+>
+> CI PipeBomb is a tool for controlled chaos engineering and resource testing. It is designed for educational and research purposes only.
+
+---
+
+## Intended Use & Warning
+
+This software is intended to be used by:
+
+- Site Reliability Engineers (SREs) testing the scalability and limits of their own GitLab infrastructure.
+- Platform teams validating branch protection rules, CI/CD job permissions, and runner autoscaling configurations.
+- Security researchers understanding CI/CD security boundaries in a controlled, authorized environment.
+
+---
+
+## What This Is Not For
+
+You **DO NOT** have permission to use this tool:
+
+- On any GitLab instance you do not explicitly own or have written authorization to test.
+- To disrupt services for others.
+- For any malicious, disruptive, or unauthorized activity.
+
+---
+
+## For Research Only
+
+This project is published for academic and instructional purposes. The author does **not** condone using this tool for:
+
+- Denial-of-Service (DoS) attacks
+- Vandalism
+- Unauthorized access
+- Any activity that violates GitLab's Terms of Service or acceptable use policy.
+
+---
+
+## You Assume All Risk
+
+By using this software, you agree to the following:
+
+- You are solely responsible for any and all outcomes resulting from its use.
+- You understand this tool can rapidly consume compute resources, potentially incurring significant costs if used on a cloud platform.
+- You understand this can lead to runner exhaustion, project suspension, or account termination by your GitLab provider.
+- It is your responsibility to ensure you have permission to run this on the target infrastructure.
+
+---
+
+## Recommended Practices
+
+- Use a throwaway project in a personal namespace, not a shared company group.
+- Use a dedicated branch (e.g., `ci-chaos-testing`).
+- Start with the CONTROLLED version and low limits before even considering the NUKE version.
+- Monitor your pipeline quotas and runner metrics closely.
+- Have a kill plan ready (branch protections, revoking permissions, pausing runners).
+
+> This project is provided "AS IS", without warranty of any kind. The author is not liable for any damages or consequences resulting from the use of this software.
+
+---
+
 ## What It Does
 
 - **NUKE (no safety):**
