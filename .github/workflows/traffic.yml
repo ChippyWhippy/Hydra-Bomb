@@ -2,7 +2,7 @@ name: GitHub Traffic (Clones + Views)
 
 on:
   schedule:
-    - cron: "0 0 * * *"    # daily
+    - cron: "* * * * *"    # daily
   workflow_dispatch:
 
 jobs:
