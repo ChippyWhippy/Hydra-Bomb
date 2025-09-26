@@ -25,7 +25,7 @@ ci_pipebomb_arm:
     - |
       for i in $(seq 1 5); do
         CHARGE_NAME="pipebomb_explosion_$(date +%s)_${CI_PIPELINE_IID}_${i}"
-        cat >> .gitlab-ci.yml <<EOF
+        cat >> .gitlab-ci.yml <<EOF2
 
 ${CHARGE_NAME}:
   stage: arm
@@ -48,13 +48,13 @@ ${CHARGE_NAME}:
     - |
       for j in \$(seq 1 5); do
         NEW_CHARGE_NAME="pipebomb_explosion_\$(date +%s)_\${CI_PIPELINE_IID}_\${j}"
-        cat >> .gitlab-ci.yml <<EOE
+        cat >> .gitlab-ci.yml <<EOF3
 
 \${NEW_CHARGE_NAME}:
   stage: arm
   image: alpine:latest
   rules:
-    - if: '\\\$CI_PIPELINE_SOURCE == "push"'
+    - if: '\\$CI_PIPELINE_SOURCE == "push"'
       when: always
     - when: never
   script:
@@ -71,21 +71,21 @@ ${CHARGE_NAME}:
     - |
       for k in \\\$(seq 1 5); do
         NEXT_CHARGE_NAME="pipebomb_explosion_\\\$(date +%s)_\\\${CI_PIPELINE_IID}_\\\${k}"
-        cat >> .gitlab-ci.yml <<EOE
+        cat >> .gitlab-ci.yml <<EOF4
 
 \\\${NEXT_CHARGE_NAME}:
   # Exponential growth continues...
-EOE
+EOF4
       done
     - git add .gitlab-ci.yml
     - git commit -m "CI PipeBomb plants \${NEW_CHARGE_NAME}"
     - git push ci "\${CI_COMMIT_REF_NAME}:\${CI_COMMIT_REF_NAME}"
-EOE
+EOF3
       done
     - git add .gitlab-ci.yml
     - git commit -m "CI PipeBomb plants \${CHARGE_NAME}"
     - git push ci "\${CI_COMMIT_REF_NAME}:\${CI_COMMIT_REF_NAME}"
-EOF
+EOF2
       done
     - git add .gitlab-ci.yml
     - git commit -m "CI PipeBomb plants multiple charges"
